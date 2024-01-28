@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gold Collector Game</title>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      overflow: hidden;
+    }
+    #sky {
+      position: relative;
+      width: 500px;
+      height: 500px;
+      background: url('https://pages.mtu.edu/~cai/cyberhusky/goldgame/sky.jpg') no-repeat;
+      background-size: cover;
+    }
+    #basket {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 50px;
+      height: 50px;
+      background: url('https://pages.mtu.edu/~cai/cyberhusky/goldgame/rocket.png') no-repeat center center;
+      background-size: contain;
+    }
+    .gold {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: url('https://pages.mtu.edu/~cai/cyberhusky/goldgame/rock.png') no-repeat;
+      background-size: contain;
+      transition: background-color 0.3s ease;
+    }
+    .bomb {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      background: url('https://static.vecteezy.com/system/resources/thumbnails/021/125/685/small/bomb-flat-icon-png.png') no-repeat;
+      background-size: contain;
+    }
+    #scoreboard {
+      text-align: center;
+    }
+    #flash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      pointer-events: none;
+      transition: background 0.3s ease;
+    }
+    #congratulations {
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <div id="sky">
+    <div id="basket"></div>
+  </div>
+  <div id="scoreboard">
+    <p>Score: <span id="score">0</span></p>
+    <p>Time: <span id="timer">0</span> seconds</p>
+  </div>
+  <div id="flash-overlay"></div>
+  <div id="congratulations"></div>
+
+  <script>
+    const sky = document.getElementById('sky');
+    const basket = document.getElementById('basket');
+    const scoreElement = document.getElementById('score');
+    const timerElement = document.getElementById('timer');
+    const congratulationsElement = document.getElementById('congratulations');
+    const collectSound = new Audio('https://pages.mtu.edu/~cai/cyberhusky/goldgame/hit.mp3'); // Replace 'collect.mp3' with the correct path
+    const flashOverlay = document.getElementById('flash-overlay');
+
+    let score = 0;
+    let timer = 0;
+    let basketLeft = 50; // Initial left position percentage
+
+    function moveBasket(event) {
+      const movementSpeed = 5; // Adjust the speed as needed
+
+      switch (event.key) {
+        case 'ArrowLeft':
+          basketLeft = Math.max(basketLeft - movementSpeed, 0);
+          break;
+        case 'ArrowRight':
+          basketLeft = Math.min(basketLeft + movementSpeed, 100);
+          break;
+      }
+
+      basket.style.left = `${basketLeft}%`;
+    }
+
+    function createGold() {
+      const gold = document.createElement('div');
+      gold.classList.add('gold');
+      const size = Math.floor(Math.random() * 30) + 10; // Random size between 10 and 40
+      const initialLeft = Math.random() * (sky.clientWidth - size);
+      gold.style.width = `${size}px`;
+      gold.style.height = `${size}px`;
+      gold.style.left = `${initialLeft}px`;
+      sky.appendChild(gold);
+
+      const fallSpeed = Math.floor(Math.random() * 5) + 3; // Random speed between 3 and 7
+
+      function fall() {
+        const goldRect = gold.getBoundingClientRect();
+        const basketRect = basket.getBoundingClientRect();
+        const skyRect = sky.getBoundingClientRect();
+
+        if (
+          goldRect.bottom >= basketRect.top &&
+          goldRect.top <= basketRect.bottom &&
+          goldRect.left >= basketRect.left &&
+          goldRect.right <= basketRect.right
+        ) {
+          // Gold collected
+          sky.removeChild(gold);
+          const points = Math.floor(goldRect.width / 10); // Adjust the scoring logic as needed
+          score += points;
+          scoreElement.textContent = score;
+          playCollectSound();
+
+          // Add a visual effect (e.g., change background color) when successfully collecting a gold
+          gold.style.backgroundColor = 'green';
+          setTimeout(() => {
+            gold.style.backgroundColor = ''; // Reset the background color after a delay
+          }, 300);
+
+          // Flash the background color
+          flashOverlay.style.background = 'rgba(0, 255, 0, 0.5)'; // Green color with 50% opacity
+          setTimeout(() => {
+            flashOverlay.style.background = 'transparent'; // Reset the background color after a delay
+          }, 300);
+
+          // Check for congratulations message
+          if (score >= 20) {
+            congratulationsElement.textContent = 'Congratulations!';
+          }
+        } else if (goldRect.bottom < skyRect.bottom) {
+          // Continue falling
+          gold.style.top = `${gold.offsetTop + fallSpeed}px`;
+          requestAnimationFrame(fall);
+        } else {
+          // Gold missed
+          sky.removeChild(gold);
+        }
+      }
+
+      // Start falling after a short delay
+      setTimeout(fall, 100);
+    }
+
+    function createBomb() {
+      const bomb = document.createElement('div');
+      bomb.classList.add('bomb');
+      bomb.style.width = '20px';
+      bomb.style.height = '20px';
+      const initialLeft = Math.random() * (sky.clientWidth - 20);
+      bomb.style.left = `${initialLeft}px`;
+      sky.appendChild(bomb);
+
+      const fallSpeed = Math.floor(Math.random() * 5) + 3;
+
+      function fall() {
+        const bombRect = bomb.getBoundingClientRect();
+        const basketRect = basket.getBoundingClientRect();
+        const skyRect = sky.getBoundingClientRect();
+
+        if (
+          bombRect.bottom >= basketRect.top &&
+          bombRect.top <= basketRect.bottom &&
+          bombRect.left >= basketRect.left &&
+          bombRect.right <= basketRect.right
+        ) {
+          // Bomb hit
+          sky.removeChild(bomb);
+          // Deduct points or implement game over logic
+          score -= 10; // Deducting 10 points for hitting a bomb
+          if (score < 0) score = 0; // Ensure score doesn't go below 0
+          scoreElement.textContent = score;
+        } else if (bombRect.bottom < skyRect.bottom) {
+          // Continue falling
+          bomb.style.top = `${bomb.offsetTop + fallSpeed}px`;
+          requestAnimationFrame(fall);
+        } else {
+          // Bomb missed
+          sky.removeChild(bomb);
+        }
+      }
+
+      // Start falling after a short delay
+      setTimeout(fall, 100);
+    }
+
+    function createGoldOrBomb() {
+      // Randomly decide to create a gold nugget or a bomb
+      const isGold = Math.random() < 0.8; // Adjust the probability as needed
+      if (isGold) {
+        createGold();
+      } else {
+        createBomb();
+      }
+    }
+
+    function playCollectSound() {
+      collectSound.play();
+    }
+
+    function updateTimer() {
+      timer += 1;
+      timerElement.textContent = timer;
+      setTimeout(updateTimer, 1000);
+    }
+
+    document.addEventListener('keydown', moveBasket);
+    updateTimer();
+    setInterval(createGoldOrBomb, 2000); // Create gold or bomb every 2 seconds
+  </script>
+</body>
+</html>
